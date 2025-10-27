@@ -1,0 +1,63 @@
+# Build directories
+build/
+build-*/
+*-build/
+.qmake.stash
+Makefile
+*.pro.user
+*.pro.user.*
+
+# Compiled Object files
+*.o
+*.obj
+*.lo
+*.slo
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.lib
+*.la
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Qt-specific
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.qm
+.qmake.cache
+
+# IDE files
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln.docstates
+*.VC.db
+*.VC.opendb
+
+# Temporary files
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Installer build
+installer/*.msi
+installer/*.wixobj
+installer/*.wixpdb
+
+# Dependencies (built separately in /tmp)
+qt5-static/
+libewf/
+openssl/
