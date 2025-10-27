@@ -72,18 +72,38 @@ make install
 
 ### Building the E01 Hash Verification Tool
 
-(Instructions will be added in Task 2.0)
+#### Build Process
+
+The project uses a manual Makefile for cross-compilation. The Makefile is already configured with all necessary paths and library dependencies.
 
 1. Navigate to project directory
-2. Source the build environment
-3. Run qmake to generate Makefile
-4. Run make to build the application
+2. Run make to build the application
 
 ```bash
 cd /home/dave/e01-hasher
-source /tmp/e01-hasher-build-env.sh
-# (qmake and make commands to be added)
+make
 ```
+
+The resulting executable will be created at: `build/release/e01hasher.exe`
+
+#### Additional MSYS2 Dependencies
+
+The build requires additional MSYS2 runtime libraries that were downloaded and extracted to `/tmp/mingw64/`:
+
+- **zstd** (1.5.6): Qt Core compression support
+- **bzip2** (1.0.8): Qt Core compression support
+- **MinGW-w64 CRT** (13.0.0): MSYS2 C runtime libraries
+
+These are linked statically into the final executable.
+
+#### Makefile Configuration
+
+The Makefile is configured with:
+- **Compiler**: x86_64-w64-mingw32-g++
+- **Qt Tools**: moc, uic, rcc from `/tmp/qt5-static-install/bin/`
+- **Library Paths**: Qt, libewf, and MSYS2 mingw64 libraries
+- **Static Linking**: All libraries except Windows system DLLs
+- **Link Order**: Critical for Windows - `libmingw32` and `qtmain` must come first
 
 ### Dependencies for Hash Calculation
 

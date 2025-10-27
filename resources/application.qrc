@@ -1,0 +1,13 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/icons">
+        <!-- Application icon will be added here when available -->
+        <!-- <file>icons/app_icon.ico</file> -->
+        <!-- <file>icons/verified.png</file> -->
+        <!-- <file>icons/not_verified.png</file> -->
+        <!-- <file>icons/warning.png</file> -->
+    </qresource>
+    <qresource prefix="/images">
+        <!-- Additional images can be added here -->
+    </qresource>
+</RCC>
