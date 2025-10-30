@@ -13,6 +13,10 @@
 #include <QStandardPaths>
 #include <QTimer>
 #include <QHBoxLayout>
+#include <QMimeData>
+#include <QUrl>
+#include <QFileInfo>
+#include <QDir>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -39,6 +43,9 @@ MainWindow::MainWindow(QWidget *parent)
 {
     // Initialize EWF handler
     ewfHandler = new EWFHandler();
+
+    // Enable drag and drop
+    setAcceptDrops(true);
 
     setupUI();
     createMenuBar();
@@ -505,4 +512,105 @@ void MainWindow::onError(const QString &message)
 {
     QMessageBox::critical(this, "Error", message);
     setState(STATE_READY);
+}
+
+// ===== Drag and Drop Event Handlers =====
+
+void MainWindow::dragEnterEvent(QDragEnterEvent *event)
+{
+    // Only accept if drag contains URLs (files)
+    if (event->mimeData()->hasUrls()) {
+        const QList<QUrl> urls = event->mimeData()->urls();
+
+        // Accept only if exactly one file is being dragged
+        if (urls.size() == 1) {
+            QString filePath = urls.first().toLocalFile();
+            QFileInfo fileInfo(filePath);
+
+            // Reject directories, only accept valid forensic files
+            if (fileInfo.isFile() && isValidForensicFile(filePath)) {
+                event->acceptProposedAction();
+
+                // Update drop zone visual feedback
+                if (dropZoneFrame && currentState == STATE_READY) {
+                    dropZoneFrame->setStyleSheet(
+                        "QFrame {"
+                        "  background-color: #e3f2fd;"
+                        "  border: 2px dashed #2196F3;"
+                        "  border-radius: 8px;"
+                        "}"
+                    );
+                }
+                return;
+            }
+        }
+    }
+
+    event->ignore();
+}
+
+void MainWindow::dragMoveEvent(QDragMoveEvent *event)
+{
+    // Same logic as dragEnterEvent
+    if (event->mimeData()->hasUrls()) {
+        const QList<QUrl> urls = event->mimeData()->urls();
+
+        if (urls.size() == 1) {
+            QString filePath = urls.first().toLocalFile();
+            QFileInfo fileInfo(filePath);
+
+            if (fileInfo.isFile() && isValidForensicFile(filePath)) {
+                event->acceptProposedAction();
+                return;
+            }
+        }
+    }
+
+    event->ignore();
+}
+
+void MainWindow::dropEvent(QDropEvent *event)
+{
+    // Reset drop zone styling
+    if (dropZoneFrame) {
+        dropZoneFrame->setStyleSheet(
+            "QFrame {"
+            "  background-color: #f5f5f5;"
+            "  border: 2px dashed #999;"
+            "  border-radius: 8px;"
+            "}"
+        );
+    }
+
+    if (event->mimeData()->hasUrls()) {
+        const QList<QUrl> urls = event->mimeData()->urls();
+
+        if (urls.size() == 1) {
+            QString filePath = urls.first().toLocalFile();
+            QFileInfo fileInfo(filePath);
+
+            if (fileInfo.isFile() && isValidForensicFile(filePath)) {
+                event->acceptProposedAction();
+                onFileSelected(filePath);
+                return;
+            }
+        }
+    }
+
+    event->ignore();
+}
+
+bool MainWindow::isValidForensicFile(const QString &filePath)
+{
+    QFileInfo fileInfo(filePath);
+    QString extension = fileInfo.suffix().toLower();
+
+    // Accepted forensic image extensions
+    QStringList validExtensions = {
+        "e01", "e02", "e03", "e04", "e05", "e06", "e07", "e08", "e09",
+        "ex01", "ex02", "ex03", "ex04", "ex05",
+        "dd", "raw", "img", "bin"
+    };
+
+    return validExtensions.contains(extension);
 }

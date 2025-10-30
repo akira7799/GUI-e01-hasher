@@ -15,6 +15,9 @@
 #include <QFrame>
 #include <QCheckBox>
 #include <QProgressBar>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
 #include "ewfhandler.h"
 #include "hashengine.h"
 
@@ -58,10 +61,17 @@ private slots:
     // General error handling
     void onError(const QString &message);
 
+protected:
+    // Drag and drop events
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dragMoveEvent(QDragMoveEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
+
 private:
     void setupUI();
     void createMenuBar();
     void setState(ApplicationState newState);
+    bool isValidForensicFile(const QString &filePath);
 
     // UI Components (placeholders for now)
     QWidget *centralWidget;
