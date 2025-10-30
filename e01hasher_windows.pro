@@ -66,7 +66,15 @@ LIBEWF_DIR = C:/Users/dave/Desktop/Coding/ClaudeCode/libewf-install
 !isEmpty(LIBEWF_DIR) {
     message("Using libewf from: $$LIBEWF_DIR")
     INCLUDEPATH += $$LIBEWF_DIR/include
-    LIBS += -L$$LIBEWF_DIR/lib -lewf
+
+    # Link libewf and all its dependencies in correct order
+    LIBS += -L$$LIBEWF_DIR/lib
+    LIBS += -lewf -lbfio -lodraw -lsmdev -lsmraw
+    LIBS += -lhmac -lcaes
+    LIBS += -lfvalue -lfdata -lfcache
+    LIBS += -lfdatetime -lcdatetime -lfguid
+    LIBS += -lcdata -lcthreads -lcerror -lcnotify
+    LIBS += -lcfile -lcpath -lclocale -lcsplit -luna
 } else {
     warning("LIBEWF_DIR not set - you need to configure libewf path")
     warning("Set environment variable: LIBEWF_DIR=C:/path/to/libewf-install")
