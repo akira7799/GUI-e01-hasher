@@ -8,8 +8,8 @@ TEMPLATE = app
 # Qt modules
 QT += core gui widgets
 
-# C++ standard
-CONFIG += c++11
+# C++ standard (Qt 6 requires C++17 minimum)
+CONFIG += c++17
 
 # Static linking configuration
 CONFIG += static
@@ -41,14 +41,27 @@ UI_DIR = build/ui
 
 # Include paths
 INCLUDEPATH += $$PWD/src
-INCLUDEPATH += /tmp/libewf-install/include
+
+# Platform-specific include paths
+win32 {
+    INCLUDEPATH += /tmp/libewf-install/include
+}
+unix {
+    INCLUDEPATH += /usr/include
+}
 
 # Source files
 SOURCES += \
-    src/main.cpp
+    src/main.cpp \
+    src/mainwindow.cpp \
+    src/ewfhandler.cpp \
+    src/hashengine.cpp
 
 # Header files
-HEADERS +=
+HEADERS += \
+    src/mainwindow.h \
+    src/ewfhandler.h \
+    src/hashengine.h
 
 # UI files
 FORMS +=
@@ -56,14 +69,17 @@ FORMS +=
 # Resource files
 RESOURCES += resources/application.qrc
 
-# Library paths and linking
-LIBS += -L/tmp/libewf-install/lib
+# Platform-specific library paths
+win32 {
+    LIBS += -L/tmp/libewf-install/lib
+}
 
-# libewf static library
+# libewf library
 LIBS += -lewf
 
-# Windows CryptoAPI (for MD5, SHA1, SHA256)
+# Platform-specific crypto libraries
 win32 {
+    # Windows CryptoAPI
     LIBS += -ladvapi32
     LIBS += -lkernel32
     LIBS += -luser32
@@ -77,6 +93,11 @@ win32 {
     LIBS += -lwinmm
     LIBS += -lversion
     LIBS += -luserenv
+}
+
+unix {
+    # OpenSSL for Linux/Unix
+    LIBS += -lcrypto
 }
 
 # Compiler warnings

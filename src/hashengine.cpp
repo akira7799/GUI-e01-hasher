@@ -13,10 +13,12 @@ HashEngine::HashEngine(EWFHandler *ewfHandler, QObject *parent)
     , calculateMD5(true)
     , calculateSHA1(true)
     , calculateSHA256(true)
+#ifdef _WIN32
     , hCryptProv(0)
     , hMD5(0)
     , hSHA1(0)
     , hSHA256(0)
+#endif
     , cancelled(false)
 {
 }
@@ -189,6 +191,7 @@ void HashEngine::run()
 
 bool HashEngine::initializeHashContexts()
 {
+#ifdef _WIN32
     // Acquire cryptographic provider
     if (!CryptAcquireContext(&hCryptProv, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT)) {
         qDebug() << "HashEngine: Failed to acquire CryptoAPI context";
@@ -216,12 +219,27 @@ bool HashEngine::initializeHashContexts()
             return false;
         }
     }
+#else
+    // Initialize OpenSSL hash contexts
+    if (calculateMD5) {
+        MD5_Init(&md5Context);
+    }
+
+    if (calculateSHA1) {
+        SHA1_Init(&sha1Context);
+    }
+
+    if (calculateSHA256) {
+        SHA256_Init(&sha256Context);
+    }
+#endif
 
     return true;
 }
 
 void HashEngine::updateHashes(const char *data, qint64 size)
 {
+#ifdef _WIN32
     const BYTE *byteData = reinterpret_cast<const BYTE*>(data);
     DWORD dataSize = static_cast<DWORD>(size);
 
@@ -236,10 +254,26 @@ void HashEngine::updateHashes(const char *data, qint64 size)
     if (calculateSHA256 && hSHA256) {
         CryptHashData(hSHA256, byteData, dataSize, 0);
     }
+#else
+    const unsigned char *byteData = reinterpret_cast<const unsigned char*>(data);
+
+    if (calculateMD5) {
+        MD5_Update(&md5Context, byteData, size);
+    }
+
+    if (calculateSHA1) {
+        SHA1_Update(&sha1Context, byteData, size);
+    }
+
+    if (calculateSHA256) {
+        SHA256_Update(&sha256Context, byteData, size);
+    }
+#endif
 }
 
 void HashEngine::finalizeHashes()
 {
+#ifdef _WIN32
     BYTE hashBuffer[256];  // Large enough for any hash
     DWORD hashSize;
 
@@ -272,10 +306,38 @@ void HashEngine::finalizeHashes()
             qDebug() << "SHA256:" << calculatedSHA256;
         }
     }
+#else
+    unsigned char hashBuffer[256];  // Large enough for any hash
+
+    // Finalize MD5
+    if (calculateMD5) {
+        MD5_Final(hashBuffer, &md5Context);
+        calculatedMD5 = hashToHexString(hashBuffer, MD5_DIGEST_LENGTH);
+        emit md5Calculated(calculatedMD5);
+        qDebug() << "MD5:" << calculatedMD5;
+    }
+
+    // Finalize SHA1
+    if (calculateSHA1) {
+        SHA1_Final(hashBuffer, &sha1Context);
+        calculatedSHA1 = hashToHexString(hashBuffer, SHA_DIGEST_LENGTH);
+        emit sha1Calculated(calculatedSHA1);
+        qDebug() << "SHA1:" << calculatedSHA1;
+    }
+
+    // Finalize SHA256
+    if (calculateSHA256) {
+        SHA256_Final(hashBuffer, &sha256Context);
+        calculatedSHA256 = hashToHexString(hashBuffer, SHA256_DIGEST_LENGTH);
+        emit sha256Calculated(calculatedSHA256);
+        qDebug() << "SHA256:" << calculatedSHA256;
+    }
+#endif
 }
 
 void HashEngine::cleanupHashContexts()
 {
+#ifdef _WIN32
     if (hMD5) {
         CryptDestroyHash(hMD5);
         hMD5 = 0;
@@ -295,14 +357,21 @@ void HashEngine::cleanupHashContexts()
         CryptReleaseContext(hCryptProv, 0);
         hCryptProv = 0;
     }
+#else
+    // OpenSSL contexts are stack-allocated, no cleanup needed
+#endif
 }
 
+#ifdef _WIN32
 QString HashEngine::hashToHexString(const BYTE *hash, DWORD hashSize)
+#else
+QString HashEngine::hashToHexString(const unsigned char *hash, unsigned int hashSize)
+#endif
 {
     QString hexString;
     hexString.reserve(hashSize * 2);
 
-    for (DWORD i = 0; i < hashSize; ++i) {
+    for (unsigned int i = 0; i < hashSize; ++i) {
         hexString += QString("%1").arg(hash[i], 2, 16, QChar('0'));
     }
 

@@ -140,6 +140,8 @@ qint64 EWFHandler::readAt(char *buffer, qint64 maxSize, qint64 offset)
         return -1;
     }
 
+#ifdef _WIN32
+    // Newer libewf API
     ssize_t bytesRead = libewf_handle_read_buffer_at_offset(
         handle,
         buffer,
@@ -147,6 +149,16 @@ qint64 EWFHandler::readAt(char *buffer, qint64 maxSize, qint64 offset)
         static_cast<off64_t>(offset),
         &error
     );
+#else
+    // Older libewf API (compatible with system libewf on Linux)
+    ssize_t bytesRead = libewf_handle_read_random(
+        handle,
+        buffer,
+        static_cast<size_t>(maxSize),
+        static_cast<off64_t>(offset),
+        &error
+    );
+#endif
 
     if (bytesRead < 0) {
         setError("Failed to read data at offset");

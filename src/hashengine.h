@@ -11,9 +11,14 @@
 #include <QMap>
 #include "ewfhandler.h"
 
-// Windows CryptoAPI headers
-#include <windows.h>
-#include <wincrypt.h>
+// Platform-specific crypto headers
+#ifdef _WIN32
+    #include <windows.h>
+    #include <wincrypt.h>
+#else
+    #include <openssl/md5.h>
+    #include <openssl/sha.h>
+#endif
 
 class HashEngine : public QThread
 {
@@ -63,7 +68,11 @@ private:
     void cleanupHashContexts();
 
     // Helper functions
+#ifdef _WIN32
     QString hashToHexString(const BYTE *hash, DWORD hashSize);
+#else
+    QString hashToHexString(const unsigned char *hash, unsigned int hashSize);
+#endif
     void calculateProgress(qint64 bytesProcessed, qint64 totalBytes);
 
     // EWF handler
@@ -84,11 +93,17 @@ private:
     QString calculatedSHA1;
     QString calculatedSHA256;
 
-    // Windows CryptoAPI handles
+    // Platform-specific hash contexts
+#ifdef _WIN32
     HCRYPTPROV hCryptProv;
     HCRYPTHASH hMD5;
     HCRYPTHASH hSHA1;
     HCRYPTHASH hSHA256;
+#else
+    MD5_CTX md5Context;
+    SHA_CTX sha1Context;
+    SHA256_CTX sha256Context;
+#endif
 
     // Control flags
     bool cancelled;
