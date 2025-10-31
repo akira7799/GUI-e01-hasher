@@ -274,7 +274,7 @@ void MainWindow::setState(ApplicationState newState)
             progressGroup->setVisible(false);
             resultsGroup->setVisible(true);
             startButton->setEnabled(true);
-            startButton->setText("Verify Again");
+            startButton->setText("Verify Another File");
             break;
     }
 }
@@ -342,6 +342,21 @@ void MainWindow::onFileSelected(const QString &path)
 
 void MainWindow::onStartVerification()
 {
+    // If we're in STATE_COMPLETE, reset to load another file
+    if (currentState == STATE_COMPLETE) {
+        ewfHandler->close();
+        currentFilePath.clear();
+        calculatedMD5.clear();
+        calculatedSHA1.clear();
+        calculatedSHA256.clear();
+        expectedMD5.clear();
+        expectedSHA1.clear();
+        expectedSHA256.clear();
+        startButton->setText("Start Verification");
+        setState(STATE_READY);
+        return;
+    }
+
     // Clean up old hash engine if exists
     if (hashEngine) {
         hashEngine->wait();

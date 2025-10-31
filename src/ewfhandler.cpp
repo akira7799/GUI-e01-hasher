@@ -6,6 +6,7 @@
 #include "ewfhandler.h"
 #include <QFile>
 #include <QFileInfo>
+#include <QDir>
 #include <QDebug>
 #include <cstring>
 
@@ -38,7 +39,15 @@ bool EWFHandler::open(const QString &filePath)
 
     // Initialize libewf handle
     if (libewf_handle_initialize(&handle, &error) != 1) {
-        setError("Failed to initialize libewf handle");
+        QString errorMsg = "Failed to initialize libewf handle";
+        if (error != nullptr) {
+            char errorString[512];
+            if (libewf_error_sprint(error, errorString, 512) > 0) {
+                errorMsg += QString(" - libewf error: %1").arg(errorString);
+            }
+            libewf_error_free(&error);
+        }
+        setError(errorMsg);
         return false;
     }
 
@@ -53,7 +62,24 @@ bool EWFHandler::open(const QString &filePath)
     }
 
     // Open the file(s) with libewf
-    int result = libewf_handle_open(
+    int result;
+#ifdef _WIN32
+    // Windows: Use wide-character open
+    result = libewf_handle_open_wide(
+        handle,
+        reinterpret_cast<wchar_t**>(filenames),
+        fileCount,
+        LIBEWF_OPEN_READ,
+        &error
+    );
+
+    // Free the globbed wide filenames
+    if (filenames != nullptr) {
+        libewf_glob_wide_free(reinterpret_cast<wchar_t**>(filenames), fileCount, nullptr);
+    }
+#else
+    // Linux: Use standard char open
+    result = libewf_handle_open(
         handle,
         filenames,
         fileCount,
@@ -65,9 +91,18 @@ bool EWFHandler::open(const QString &filePath)
     if (filenames != nullptr) {
         libewf_glob_free(filenames, fileCount, nullptr);
     }
+#endif
 
     if (result != 1) {
-        setError("Failed to open E01 file with libewf");
+        QString errorMsg = "Failed to open E01 file with libewf";
+        if (error != nullptr) {
+            char errorString[512];
+            if (libewf_error_sprint(error, errorString, 512) > 0) {
+                errorMsg += QString(" - libewf error: %1").arg(errorString);
+            }
+            libewf_error_free(&error);
+        }
+        setError(errorMsg);
         libewf_handle_free(&handle, nullptr);
         handle = nullptr;
         return false;
@@ -268,6 +303,55 @@ QString EWFHandler::getLastError() const
 
 bool EWFHandler::detectAndGlobSegments(const QString &filePath, char ***filenames, int *fileCount)
 {
+#ifdef _WIN32
+    // Windows: Use wide-character API for proper Unicode support
+    // Convert to native Windows path (backslashes)
+    QString nativePath = QDir::toNativeSeparators(filePath);
+    std::wstring wPath = nativePath.toStdWString();
+    wchar_t **wFilenames = nullptr;
+
+    // Use libewf_glob_wide for Windows
+    int result = libewf_glob_wide(
+        wPath.c_str(),
+        wPath.length(),
+        LIBEWF_FORMAT_UNKNOWN,
+        &wFilenames,
+        fileCount,
+        &error
+    );
+
+    if (result != 1) {
+        // Glob failed, try opening the single file
+        // Clean up error if present
+        if (error != nullptr) {
+            libewf_error_free(&error);
+            error = nullptr;
+        }
+
+        // Allocate array for single filename (wide char)
+        wFilenames = static_cast<wchar_t**>(malloc(sizeof(wchar_t*)));
+        if (wFilenames == nullptr) {
+            setError("Failed to allocate memory for filename");
+            return false;
+        }
+
+        // Duplicate the wide filename
+        wFilenames[0] = _wcsdup(wPath.c_str());
+        if (wFilenames[0] == nullptr) {
+            free(wFilenames);
+            setError("Failed to duplicate filename");
+            return false;
+        }
+
+        *fileCount = 1;
+    }
+
+    // Convert wide char array to char array for libewf_handle_open_wide
+    // Actually, we'll store the wide char pointers and use open_wide
+    *filenames = reinterpret_cast<char**>(wFilenames);
+
+#else
+    // Linux: Use standard char API
     QByteArray filePathBytes = filePath.toLocal8Bit();
     const char *path = filePathBytes.constData();
 
@@ -301,15 +385,14 @@ bool EWFHandler::detectAndGlobSegments(const QString &filePath, char ***filename
         }
 
         *fileCount = 1;
-        return true;
     }
+#endif
 
     if (*fileCount == 0) {
         setError("No segments found for file: " + filePath);
         return false;
     }
 
-    qDebug() << "Found" << *fileCount << "segment(s) for" << filePath;
     return true;
 }
 

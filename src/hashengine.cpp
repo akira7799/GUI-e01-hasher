@@ -110,8 +110,8 @@ void HashEngine::run()
         // Calculate how much to read
         qint64 bytesToRead = qMin(CHUNK_SIZE, totalBytes - bytesProcessed);
 
-        // Read data
-        qint64 bytesRead = ewfHandler->read(buffer, bytesToRead);
+        // Read data at specific offset (ensures consistent results)
+        qint64 bytesRead = ewfHandler->readAt(buffer, bytesToRead, bytesProcessed);
 
         if (bytesRead < 0) {
             emit error("Failed to read data from file");
@@ -387,22 +387,36 @@ void HashEngine::calculateProgress(qint64 bytesProcessed, qint64 totalBytes)
 
     emit progressUpdate(percentage, bytesProcessed, totalBytes);
 
-    // Calculate time remaining
-    // This is a simplified estimation - could be improved with moving average
+    // Calculate time remaining using exponential smoothing for stability
     static QElapsedTimer overallTimer;
     static bool timerStarted = false;
+    static qint64 smoothedRemainingMs = 0;
+    static const double SMOOTHING_FACTOR = 0.2; // Lower = more smoothing
 
     if (!timerStarted) {
         overallTimer.start();
         timerStarted = true;
+        smoothedRemainingMs = 0;
     }
 
     if (percentage > 0 && percentage < 100) {
         qint64 elapsedMs = overallTimer.elapsed();
         qint64 totalEstimatedMs = (elapsedMs * 100) / percentage;
-        qint64 remainingMs = totalEstimatedMs - elapsedMs;
+        qint64 rawRemainingMs = totalEstimatedMs - elapsedMs;
 
-        int remainingSeconds = static_cast<int>(remainingMs / 1000);
+        // Apply exponential smoothing to reduce jitter
+        if (smoothedRemainingMs == 0) {
+            // First estimate - use raw value
+            smoothedRemainingMs = rawRemainingMs;
+        } else {
+            // Blend new estimate with previous smoothed value
+            smoothedRemainingMs = static_cast<qint64>(
+                SMOOTHING_FACTOR * rawRemainingMs +
+                (1.0 - SMOOTHING_FACTOR) * smoothedRemainingMs
+            );
+        }
+
+        int remainingSeconds = static_cast<int>(smoothedRemainingMs / 1000);
         int minutes = remainingSeconds / 60;
         int seconds = remainingSeconds % 60;
 
@@ -416,5 +430,6 @@ void HashEngine::calculateProgress(qint64 bytesProcessed, qint64 totalBytes)
         emit timeEstimate(timeString);
     } else if (percentage >= 100) {
         timerStarted = false;
+        smoothedRemainingMs = 0;
     }
 }
